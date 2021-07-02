@@ -28,9 +28,10 @@ type PrimitiveSet struct {
 	lastupdate time.Time
 }
 
-func NewPrimitiveSet(lup time.Time, eles []*Element) *PrimitiveSet {
+func NewPrimitiveSet(lup time.Time, tag Tag, eles []*Element) *PrimitiveSet {
 	return &PrimitiveSet{
 		primitives: eles,
+		tag:        tag,
 		lastupdate: lup,
 	}
 }
