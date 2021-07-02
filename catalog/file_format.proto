@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package catalog;
+
+option go_package = "github.com/nytm/messaging-helix-settarino/catalog";
+
+import "google/protobuf/timestamp.proto";
+
+message ElementFile {
+  oneof Data {
+    ReplaceStyleElements rstyle = 1;
+    DeltaStyleElements   dstyle = 2;
+  }
+}
+
+message ReplaceStyleHeader {
+  string Tag = 1;
+  google.protobuf.Timestamp WriteTime = 2;
+}
+
+message ReplaceStyleElement {
+  string Key = 1;
+}
+
+message ReplaceStyleElements {
+  ReplaceStyleHeader           Header   = 1;
+  repeated ReplaceStyleElement Elements = 2;
+}
+
+// TODO: delta-style element files
+message DeltaStyleElements {}
