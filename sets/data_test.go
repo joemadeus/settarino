@@ -56,4 +56,22 @@ func TestData_Equals(t *testing.T) {
 		right := Element{Key: "janis"}
 		assert.False(t, left.Equals(&right))
 	})
+
+	t.Run("empty_left", func(t *testing.T) {
+		left := Element{}
+		right := Element{Key: "janis"}
+		assert.False(t, left.Equals(&right))
+	})
+
+	t.Run("empty_right", func(t *testing.T) {
+		left := Element{Key: "rowlf"}
+		right := Element{}
+		assert.False(t, left.Equals(&right))
+	})
+
+	t.Run("empty_everywhere", func(t *testing.T) {
+		left := Element{}
+		right := Element{}
+		assert.False(t, left.Equals(&right))
+	})
 }

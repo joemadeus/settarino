@@ -16,24 +16,47 @@ type Set interface {
 type SizedSet interface {
 	Set
 
-	// Size returns the cardinality of the Elements in this set
+	// Size returns the cardinality of the Elements in the set
 	Size() int
+}
+
+type primitiveElement struct {
+	key string
+	tag Tag
 }
 
 // A PrimitiveSet is a SizedSet whose Elements are backed by a slice
 type PrimitiveSet struct {
 	sync.RWMutex
 	tag        Tag
-	primitives []*Element
+	primitives []primitiveElement
 	lastupdate time.Time
 }
 
-func NewPrimitiveSet(lup time.Time, tag Tag, eles []*Element) *PrimitiveSet {
+// NewPrimitiveSet creates and returns a new PrimitiveSet with the provided Tag and
+// keys
+func NewPrimitiveSet(lup time.Time, tag Tag, keys []string) *PrimitiveSet {
 	return &PrimitiveSet{
-		primitives: eles,
+		primitives: createEles(tag, keys),
 		tag:        tag,
 		lastupdate: lup,
 	}
+}
+
+func createEles(tag Tag, keys []string) []primitiveElement {
+	eles := make([]primitiveElement, len(keys), len(keys))
+	for i, k := range keys {
+		eles[i] = primitiveElement{
+			key: k,
+			tag: tag,
+		}
+	}
+
+	sort.Slice(eles, func(i, j int) bool {
+		return lessthan(eles[i].key, eles[j].key)
+	})
+
+	return eles
 }
 
 func (ps *PrimitiveSet) Intersect(o Set) *StreamingSet {
@@ -67,8 +90,15 @@ func (ps *PrimitiveSet) Elements() chan *Element {
 		ps.RLock()
 		defer ps.RUnlock()
 		defer close(out)
-		for _, e := range ps.primitives {
-			out <- e
+
+		for i := 0; i < len(ps.primitives); i++ {
+			// copy into an Element pointer. the original elements must not be modified in any way,
+			// hence this assignment andthe internal type. this pattern is going to cause significant
+			// GC pressure but it's easier than trying to manage the tags in other ways
+			out <- &Element{
+				Key:  ps.primitives[i].key,
+				Tags: map[Tag]struct{}{ps.primitives[i].tag: {}},
+			}
 		}
 	}()
 
@@ -77,22 +107,25 @@ func (ps *PrimitiveSet) Elements() chan *Element {
 
 // Member returns the Element in this Set with the provided key, or nil if it's not
 // in this set
-func (ps *PrimitiveSet) Member(key string) *Element {
-	return ps.member(&Element{Key: key})
-}
-
-func (ps *PrimitiveSet) member(poke *Element) *Element {
+func (ps *PrimitiveSet) Member(poke string) *Element {
 	i := sort.Search(len(ps.primitives), func(i int) bool {
-		return ps.primitives[i].LessThan(poke) == false
+		return lessthan(poke, ps.primitives[i].key)
 	})
 
-	if i < len(ps.primitives) && ps.primitives[i].Equals(poke) {
-		return ps.primitives[i]
+	i--
+
+	if i >= 0 && i < len(ps.primitives) && ps.primitives[i].key == poke {
+		// return a pointer to a copy of the element
+		return &Element{
+			Key:  ps.primitives[i].key,
+			Tags: map[Tag]struct{}{ps.primitives[i].tag: {}},
+		}
 	}
 
 	return nil
 }
 
+// LastUpdateTime returns the time of the most recent call to Reload or NewPrimitiveSet
 func (ps *PrimitiveSet) LastUpdateTime() time.Time {
 	ps.RLock()
 	defer ps.RUnlock()
@@ -100,12 +133,14 @@ func (ps *PrimitiveSet) LastUpdateTime() time.Time {
 	return ps.lastupdate
 }
 
-func (ps *PrimitiveSet) Reload(lup time.Time, eles []*Element) {
+// Reload replaces every element in the PrimitiveSet and sets the last update time to
+// the provided time
+func (ps *PrimitiveSet) Reload(lup time.Time, keys []string) {
 	ps.Lock()
 	defer ps.Unlock()
 
 	ps.lastupdate = lup
-	ps.primitives = eles
+	ps.primitives = createEles(ps.tag, keys)
 }
 
 func (ps *PrimitiveSet) Size() int {
@@ -145,16 +180,4 @@ func (ss *StreamingSet) Union(o Set) *StreamingSet {
 
 func (ss *StreamingSet) Elements() chan *Element {
 	return ss.elements
-}
-
-func tagSlice(eles []*Element, ts ...Tag) {
-	for _, e := range eles {
-		if e.Tags == nil {
-			e.Tags = make(map[Tag]struct{})
-		}
-
-		for _, t := range ts {
-			e.Tags[t] = struct{}{}
-		}
-	}
 }

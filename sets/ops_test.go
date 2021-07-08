@@ -2,146 +2,104 @@ package sets
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIntersect(t *testing.T) {
-	t.Run("empty_empty", func(t *testing.T) {
-		m := toChan()
-		n := toChan()
-		o := StreamIntersect(m, n)
+	tts := []struct {
+		p1, p2 *PrimitiveSet
+		okeys  []string
+		name   string
+	}{{
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{}),
+		okeys: []string{},
+		name:  "empty_empty",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{"piggy", "rowlf", "scooter"}),
+		okeys: []string{},
+		name:  "m_side_empty",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "kermit"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{}),
+		okeys: []string{},
+		name:  "n_side_empty",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "kermit"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{"rowlf", "scooter", "sweetums"}),
+		okeys: []string{},
+		name:  "disjoint",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"rowlf", "scooter", "sweetums"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{"fozzie", "gonzo", "kermit"}),
+		okeys: []string{},
+		name:  "reverse_disjoint",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "gonzo", "rowlf", "sweetums"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("p2"), []string{"fozzie", "kermit", "piggy", "scooter"}),
+		okeys: []string{},
+		name:  "mixed_disjoint",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "kermit", "piggy", "scooter"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"chef", "gonzo", "rowlf", "sweetums"}),
+		okeys: []string{},
+		name:  "reverse_mixed_disjoint",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "gonzo", "kermit"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"chef", "fozzie", "piggy", "scooter"}),
+		okeys: []string{"chef", "fozzie"},
+		name:  "intersecting_start_start",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "gonzo", "kermit"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"gonzo", "kermit", "rowlf", "sweetums"}),
+		okeys: []string{"gonzo", "kermit"},
+		name:  "intersecting_end_start",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "gonzo", "kermit"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"beaker", "fozzie", "gonzo", "sweetums"}),
+		okeys: []string{"fozzie", "gonzo"},
+		name:  "intersecting_middle",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "harry", "kermit", "rowlf"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"beaker", "fozzie", "gonzo", "kermit", "sweetums"}),
+		okeys: []string{"fozzie", "kermit"},
+		name:  "intersecting_mixed",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "rowlf", "sweetums"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"beaker", "kermit", "rowlf", "sweetums"}),
+		okeys: []string{"rowlf", "sweetums"},
+		name:  "intersecting_end_end",
+	}, {
+		p1:    NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"chef", "fozzie", "rowlf", "sweetums"}),
+		p2:    NewPrimitiveSet(time.Now(), CanonicalTag("poke"), []string{"animal", "beaker", "chef", "fozzie"}),
+		okeys: []string{"chef", "fozzie"},
+		name:  "intersecting_start_end",
+	}}
 
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
+	for _, tt := range tts {
+		t.Run(tt.name+"_fast", func(t *testing.T) {
+			o := FastIntersect(tt.p1, tt.p2.Elements())
+			ds := eleSlice(o)
 
-	t.Run("m_side_empty", func(t *testing.T) {
-		m := toChan()
-		n := toChan(&Element{Key: "piggy"}, &Element{Key: "rowlf"}, &Element{Key: "scooter"})
-		o := StreamIntersect(m, n)
+			assert.EqualValues(t, len(tt.okeys), len(ds))
+			for i, e := range ds {
+				assert.EqualValues(t, tt.okeys[i], e.Key)
+			}
+		})
 
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
+		t.Run(tt.name+"_stream", func(t *testing.T) {
+			o := StreamIntersect(tt.p1.Elements(), tt.p2.Elements())
+			ds := eleSlice(o)
 
-	t.Run("n_side_empty", func(t *testing.T) {
-		m := toChan(&Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		n := toChan()
-		o := StreamIntersect(m, n)
-
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
-
-	t.Run("disjoint", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		n := toChan(&Element{Key: "piggy"}, &Element{Key: "rowlf"}, &Element{Key: "scooter"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
-
-	t.Run("reverse_disjoint", func(t *testing.T) {
-		m := toChan(&Element{Key: "piggy"}, &Element{Key: "rowlf"}, &Element{Key: "scooter"}, &Element{Key: "sweetums"})
-		n := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		o := StreamIntersect(m, n)
-
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
-
-	t.Run("mixed_disjoint", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "gonzo"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		n := toChan(&Element{Key: "fozzie"}, &Element{Key: "kermit"}, &Element{Key: "piggy"}, &Element{Key: "scooter"})
-		o := StreamIntersect(m, n)
-
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
-
-	t.Run("reverse_mixed_disjoint", func(t *testing.T) {
-		m := toChan(&Element{Key: "fozzie"}, &Element{Key: "kermit"}, &Element{Key: "piggy"}, &Element{Key: "scooter"})
-		n := toChan(&Element{Key: "chef"}, &Element{Key: "gonzo"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		d, ok := <-o
-		assert.False(t, ok, "returned: %+v", d)
-		assert.Nil(t, d)
-	})
-
-	t.Run("intersecting_start_start", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		n := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "piggy"}, &Element{Key: "scooter"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "chef")
-		assert.EqualValues(t, ds[1].Key, "fozzie")
-	})
-
-	t.Run("intersecting_end_start", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		n := toChan(&Element{Key: "gonzo"}, &Element{Key: "kermit"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "gonzo")
-		assert.EqualValues(t, ds[1].Key, "kermit")
-	})
-
-	t.Run("intersecting_middle", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
-		n := toChan(&Element{Key: "beaker"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "fozzie")
-		assert.EqualValues(t, ds[1].Key, "gonzo")
-	})
-
-	t.Run("intersecting_mixed", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "harry"}, &Element{Key: "kermit"}, &Element{Key: "rowlf"})
-		n := toChan(&Element{Key: "beaker"}, &Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "fozzie")
-		assert.EqualValues(t, ds[1].Key, "kermit")
-	})
-
-	t.Run("intersecting_end_end", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		n := toChan(&Element{Key: "beaker"}, &Element{Key: "kermit"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "rowlf")
-		assert.EqualValues(t, ds[1].Key, "sweetums")
-	})
-
-	t.Run("intersecting_start_end", func(t *testing.T) {
-		m := toChan(&Element{Key: "chef"}, &Element{Key: "fozzie"}, &Element{Key: "rowlf"}, &Element{Key: "sweetums"})
-		n := toChan(&Element{Key: "animal"}, &Element{Key: "beaker"}, &Element{Key: "chef"}, &Element{Key: "fozzie"})
-		o := StreamIntersect(m, n)
-
-		ds := toSlice(o)
-		assert.Len(t, ds, 2)
-		assert.EqualValues(t, ds[0].Key, "chef")
-		assert.EqualValues(t, ds[1].Key, "fozzie")
-	})
+			assert.EqualValues(t, len(tt.okeys), len(ds))
+			for i, e := range ds {
+				assert.EqualValues(t, tt.okeys[i], e.Key)
+			}
+		})
+	}
 }
 
 func TestUnion(t *testing.T) {
@@ -160,7 +118,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "piggy"}, &Element{Key: "rowlf"}, &Element{Key: "scooter"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 3)
 		assert.EqualValues(t, "piggy", ds[0].Key)
 		assert.EqualValues(t, "rowlf", ds[1].Key)
@@ -172,7 +130,7 @@ func TestUnion(t *testing.T) {
 		n := toChan()
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 3)
 		assert.EqualValues(t, "fozzie", ds[0].Key)
 		assert.EqualValues(t, "gonzo", ds[1].Key)
@@ -184,7 +142,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "piggy"}, &Element{Key: "rowlf"}, &Element{Key: "scooter"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 6)
 		assert.EqualValues(t, "fozzie", ds[0].Key)
 		assert.EqualValues(t, "gonzo", ds[1].Key)
@@ -199,7 +157,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 6)
 		assert.EqualValues(t, "fozzie", ds[0].Key)
 		assert.EqualValues(t, "gonzo", ds[1].Key)
@@ -214,7 +172,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "animal"}, &Element{Key: "harry"}, &Element{Key: "scooter"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 6)
 		assert.EqualValues(t, "animal", ds[0].Key)
 		assert.EqualValues(t, "fozzie", ds[1].Key)
@@ -229,7 +187,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "fozzie"}, &Element{Key: "gonzo"}, &Element{Key: "kermit"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 6)
 		assert.EqualValues(t, "animal", ds[0].Key)
 		assert.EqualValues(t, "fozzie", ds[1].Key)
@@ -244,7 +202,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "fozzie"}, &Element{Key: "harry"}, &Element{Key: "kermit"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 5)
 		assert.EqualValues(t, "animal", ds[0].Key)
 		assert.EqualValues(t, "fozzie", ds[1].Key)
@@ -258,7 +216,7 @@ func TestUnion(t *testing.T) {
 		n := toChan(&Element{Key: "fozzie"}, &Element{Key: "harry"}, &Element{Key: "kermit"})
 		o := Union(m, n)
 
-		ds := toSlice(o)
+		ds := eleSlice(o)
 		assert.Len(t, ds, 5)
 		assert.EqualValues(t, "animal", ds[0].Key)
 		assert.EqualValues(t, "fozzie", ds[1].Key)
@@ -280,7 +238,7 @@ func toChan(eles ...*Element) chan *Element {
 	return out
 }
 
-func toSlice(es chan *Element) []*Element {
+func eleSlice(es chan *Element) []*Element {
 	out := make([]*Element, 0)
 	for e := range es {
 		out = append(out, e)
