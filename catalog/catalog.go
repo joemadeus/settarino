@@ -20,6 +20,18 @@ type Catalog struct {
 	sets map[sets.Tag]*sets.PrimitiveSet
 }
 
+func (c *Catalog) AddPrimitiveSet(tag sets.Tag, set *sets.PrimitiveSet) error {
+	c.Lock()
+	defer c.Unlock()
+
+	if k, _ := c.sets[tag]; k != nil {
+		return fmt.Errorf("set with tag %v is already known in the catalog", tag)
+	}
+
+	c.sets[tag] = set
+	return nil
+}
+
 // PrimitiveSet returns the sets.PrimitiveSet associated with the given sets.Tag, or
 // NoSuchTagError if the Tag is unknown
 func (c *Catalog) PrimitiveSet(tag sets.Tag) (*sets.PrimitiveSet, *NoSuchTagError) {

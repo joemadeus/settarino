@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/nytimes/settarino/catalog"
@@ -20,12 +19,14 @@ const (
 
 var (
 	installtype string
+	seglabel    string
 	count       int
 )
 
 func init() {
 	flag.StringVar(&installtype, "t", "", "installation type")
 	flag.IntVar(&count, "c", 0, "number of tokens to generate")
+	flag.StringVar(&seglabel, "l", "", "the segment label to use for this data")
 }
 
 func main() {
@@ -42,18 +43,12 @@ func main() {
 		alpha, bits = AndroidAlpha, 155
 	}
 
-	eles := make([]sets.Element, count, count)
+	keys := make([]string, count, count)
 	for i := 0; i < count; i++ {
-		eles[i] = sets.Element{
-			Key: RandomToken(bits, alpha),
-		}
+		keys[i] = RandomToken(bits, alpha)
 	}
 
-	sort.Slice(eles, func(i, j int) bool {
-		return eles[i].LessThan(&eles[j])
-	})
-
-	pset := sets.NewPrimitiveSet(time.Now(), sets.CanonicalTag(installtype), eles)
+	pset := sets.NewPrimitiveSet(time.Now(), sets.CanonicalTag(seglabel), keys)
 	name := catalog.Name(installtype, pset)
 
 	fo, err := os.Create(name)
@@ -63,7 +58,7 @@ func main() {
 	defer fo.Close()
 
 	fw := bufio.NewWriter(fo)
-	if err := catalog.PersistSet(fw, installtype, pset); err != nil {
+	if err := catalog.PersistSet(fw, pset); err != nil {
 		log.Fatal(err)
 	}
 }

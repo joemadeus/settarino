@@ -7,16 +7,18 @@ import (
 // FastIntersect performs an intersection on this and the provided Elements, but
 // operates in O(n * log(n)) time instead of linear time. If 'poker' comes from a
 // PrimitiveSet and its size is larger than ps, consider swapping the arguments' values
+// for better run time
 func FastIntersect(ps *PrimitiveSet, poker chan *Element) chan *Element {
 	out := make(chan *Element)
 	go func() {
 		// locking here only because we don't get the locking in the Elements() func
+		// TODO this locking is odd and a better solution should be found
 		ps.RLock()
 		defer ps.RUnlock()
 		defer close(out)
 
 		for p := range poker {
-			if e := ps.member(p); e != nil {
+			if e := ps.Member(p.Key); e != nil {
 				e.AddTags(p.Tags)
 				out <- e
 			}
@@ -26,9 +28,9 @@ func FastIntersect(ps *PrimitiveSet, poker chan *Element) chan *Element {
 	return out
 }
 
-// StreamIntersect returns values on the output channel that exist in both input sets.
-// Incoming values are assumed sorted within their chan, as are values on the output
-// channel. Operates in linear time
+// StreamIntersect returns Elements on the output channel that exist in both input
+// channels. Incoming values are assumed sorted within their chan, as are values on
+// the output channel. Operates in linear time
 func StreamIntersect(mD chan *Element, nD chan *Element) chan *Element {
 	out := make(chan *Element)
 	go func() {
@@ -37,7 +39,7 @@ func StreamIntersect(mD chan *Element, nD chan *Element) chan *Element {
 		recvM := recv(mD)
 		recvN := recv(nD)
 
-		// provide nHi, mHi with an initial values so the loop has something to work on.
+		// provide nHi, mHi with initial values so the loop has something to work on.
 		// bonus: lets us exit quickly if either has no elements
 		mHi, ok := recvM()
 		if ok == false {
@@ -62,7 +64,7 @@ func StreamIntersect(mD chan *Element, nD chan *Element) chan *Element {
 
 			default:
 				// high water marks are equal, which means
-				// this value is part of the intersection
+				// this Element is part of the intersection
 				mHi.AddTags(nHi.Tags)
 				out <- mHi
 				mHi, mMore = recvM()

@@ -11,49 +11,35 @@ import (
 )
 
 func TestRoundTrip(t *testing.T) {
-	fozzie := sets.Element{
-		Key:     "fozzie",
-		Payload: []byte{0x1},
-	}
-
-	gonzo := sets.Element{
-		Key:     "gonzo",
-		Payload: []byte{0x0},
-	}
-
-	rawlf := sets.Element{
-		Key:     "rawlf",
-		Payload: []byte{0x1, 0x1},
-	}
-
-	wlup := time.Now()
-	wsid := "MUPN"
-	weles := []sets.Element{fozzie, gonzo, rawlf}
-	wset := sets.NewPrimitiveSet(wlup, weles)
+	fozzie, gonzo, rawlf := "fozzie", "gonzo", "rawlf"
+	wps := sets.NewPrimitiveSet(
+		time.Now(),
+		sets.CanonicalTag("MUPN"),
+		[]string{fozzie, gonzo, rawlf})
 
 	w := bytes.Buffer{}
-	if err := PersistSet(&w, wsid, wset); err != nil {
+	if err := PersistSet(&w, wps); err != nil {
 		t.Fatalf("did not persist the test set: %+v", err)
 	}
 
 	r := bytes.NewBuffer(w.Bytes())
-	rsid, rset, err := LoadSet(r)
+	rps, err := LoadSet(r)
 	if err != nil {
 		t.Fatalf("did not reload the test set: %+v", err)
 	}
 
-	assert.NotNil(t, rset)
+	assert.NotNil(t, rps)
+	// second resolution is fine. the protobuf code seems to mess things up
+	// at finer resolutions
+	assert.EqualValues(t, wps.LastUpdateTime().Unix(), rps.LastUpdateTime().Unix())
+	assert.EqualValues(t, wps.Tag(), rps.Tag())
 
-	reles := make([]sets.Element, 0)
-	for re := range rset.Elements() {
+	reles := make([]*sets.Element, 0)
+	for re := range rps.Elements() {
 		reles = append(reles, re)
 	}
-
-	rlup := rset.LastUpdateTime()
-	assert.True(t, wlup.Equal(rlup), "wanted %+v, got %+v", wlup, rlup)
-	assert.EqualValues(t, wsid, rsid)
 	assert.Len(t, reles, 3)
-	assert.EqualValues(t, fozzie, reles[0])
-	assert.EqualValues(t, gonzo, reles[1])
-	assert.EqualValues(t, rawlf, reles[2])
+	assert.EqualValues(t, fozzie, reles[0].Key)
+	assert.EqualValues(t, gonzo, reles[1].Key)
+	assert.EqualValues(t, rawlf, reles[2].Key)
 }
