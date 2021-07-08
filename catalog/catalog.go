@@ -25,7 +25,7 @@ func (c *Catalog) AddPrimitiveSet(tag sets.Tag, set *sets.PrimitiveSet) error {
 	defer c.Unlock()
 
 	if k, _ := c.sets[tag]; k != nil {
-		return fmt.Errorf("set with tag %s is already known in the catalog", tag)
+		return fmt.Errorf("set with tag %v is already known in the catalog", tag)
 	}
 
 	c.sets[tag] = set

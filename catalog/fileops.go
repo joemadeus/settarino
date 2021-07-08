@@ -29,11 +29,9 @@ func LoadSet(r io.Reader) (*sets.PrimitiveSet, error) {
 	pbdata := pbwrapper.GetRstyle()
 	wt := pbdata.Header.GetWriteTime().AsTime().UTC()
 	tag := pbdata.Header.Tag
-	eles := make([]sets.Element, len(pbdata.Elements), len(pbdata.Elements))
+	eles := make([]string, len(pbdata.Elements), len(pbdata.Elements))
 	for i, e := range pbdata.Elements {
-		eles[i] = sets.Element{
-			Key: e.GetKey(),
-		}
+		eles[i] = e.GetKey()
 	}
 
 	return sets.NewPrimitiveSet(wt, sets.CanonicalTag(tag), eles), nil

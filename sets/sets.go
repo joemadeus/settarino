@@ -39,7 +39,7 @@ func NewPrimitiveSet(lup time.Time, tag Tag, keys []string) *PrimitiveSet {
 	return &PrimitiveSet{
 		primitives: createEles(tag, keys),
 		tag:        tag,
-		lastupdate: lup,
+		lastupdate: lup.UTC(),
 	}
 }
 
