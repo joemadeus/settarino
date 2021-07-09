@@ -60,22 +60,19 @@ func createEles(tag Tag, keys []string) []primitiveElement {
 }
 
 func (ps *PrimitiveSet) Intersect(o Set) *StreamingSet {
-	var out chan *Element
 	switch other := o.(type) {
 	case *PrimitiveSet:
 		if other.Size() < ps.Size() {
-			out = FastIntersect(ps, other.Elements())
+			return &StreamingSet{FastIntersect(ps, other.Elements())}
 		}
-		out = FastIntersect(other, ps.Elements())
+		return &StreamingSet{FastIntersect(other, ps.Elements())}
 
 	case *StreamingSet:
-		out = FastIntersect(ps, other.Elements())
+		return &StreamingSet{FastIntersect(ps, other.Elements())}
 
 	default:
 		panic(fmt.Sprintf("assumption violation: %T isn't handled by PrimitiveSet", other))
 	}
-
-	return &StreamingSet{elements: out}
 }
 
 func (ps *PrimitiveSet) Union(o Set) *StreamingSet {

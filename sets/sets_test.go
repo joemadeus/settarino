@@ -46,9 +46,21 @@ func TestPrimitiveSet_Elements(t *testing.T) {
 }
 
 func TestPrimitiveSet_Member(t *testing.T) {
-	t.Run("no_member", func(t *testing.T) {
+	t.Run("no_member_low", func(t *testing.T) {
 		seek := "animal"
-		p1 := NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "kermit"})
+		p1 := NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "piggy"})
+		assert.Nil(t, p1.Member(seek))
+	})
+
+	t.Run("no_member_middle", func(t *testing.T) {
+		seek := "kermit"
+		p1 := NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "piggy"})
+		assert.Nil(t, p1.Member(seek))
+	})
+
+	t.Run("no_member_high", func(t *testing.T) {
+		seek := "rowlf"
+		p1 := NewPrimitiveSet(time.Now(), CanonicalTag("p1"), []string{"fozzie", "gonzo", "piggy"})
 		assert.Nil(t, p1.Member(seek))
 	})
 
@@ -77,7 +89,7 @@ func TestPrimitiveSet_Member(t *testing.T) {
 	})
 }
 
-func TestPrimitiveSet_Intersect(t *testing.T) {
+func TestPrimitiveSet_IntersectTagging(t *testing.T) {
 	t.Run("primitive_primitive", func(t *testing.T) {
 		p1Tag, p2Tag := CanonicalTag("p1"), CanonicalTag("p2")
 		p1 := NewPrimitiveSet(time.Now(), p1Tag, []string{"fozzie", "gonzo", "kermit"})
@@ -92,8 +104,46 @@ func TestPrimitiveSet_Intersect(t *testing.T) {
 
 		for _, d := range ds {
 			assert.Len(t, d.Tags, 2)
-			ContainsTag(t, d.Tags, p1Tag, "%v", d)
-			ContainsTag(t, d.Tags, p2Tag, "%v", d)
+			ContainsTag(t, d.Tags, p1Tag, "missing %v", d)
+			ContainsTag(t, d.Tags, p2Tag, "missing %v", d)
+		}
+
+		for _, e := range p1.primitives {
+			assert.EqualValues(t, p1Tag, e.tag)
+		}
+
+		for _, e := range p2.primitives {
+			assert.EqualValues(t, p2Tag, e.tag)
+		}
+	})
+
+	t.Run("primitive_streaming", func(t *testing.T) {
+		p1Tag, p2Tag := CanonicalTag("p1"), CanonicalTag("p2")
+		p1 := NewPrimitiveSet(time.Now(), p1Tag, []string{"fozzie", "gonzo", "kermit"})
+		p2 := NewPrimitiveSet(time.Now(), p2Tag, []string{"gonzo", "kermit", "scooter"})
+		s2 := &StreamingSet{
+			elements: p2.Elements(),
+		}
+
+		o := p1.Intersect(s2)
+
+		ds := eleSlice(o.Elements())
+		assert.Equal(t, len(ds), 2)
+		assert.EqualValues(t, ds[0].Key, "gonzo")
+		assert.EqualValues(t, ds[1].Key, "kermit")
+
+		for _, d := range ds {
+			assert.Len(t, d.Tags, 2)
+			ContainsTag(t, d.Tags, p1Tag, "missing %v", d)
+			ContainsTag(t, d.Tags, p2Tag, "missing %v", d)
+		}
+
+		for _, e := range p1.primitives {
+			assert.EqualValues(t, p1Tag, e.tag)
+		}
+
+		for _, e := range p2.primitives {
+			assert.EqualValues(t, p2Tag, e.tag)
 		}
 	})
 }
